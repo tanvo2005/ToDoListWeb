@@ -9,13 +9,13 @@
             @if (request()->has('search') || request()->has('status') || request()->has('locTheo')){{-- nếu mà thực  hiện các chức năng tìm kiếm, lọc sắp xếp --}}
                 <a href="{{ route('tasks.index') }}" class="btn btn-sm btn-warning" style="margin-right: 5px">Xoá Bộ Lọc</a>
             @endif
-            <a href="{{ route('tasks.create') }}" class="btn btn-sm btn-primary" style="margin-right: 5px">+ Thêm Task</a>
-            <form actAion="{{ route('destoryAll') }}" method="POST" onsubmit="return confirm('Bạn có chắc muốn xoá tất cả không?')">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="btn btn-danger btn-sm">Xoá Tất Cả</button>
+            <a href="{{ route('tasks.index') }}" class="btn btn-sm btn-primary" style="margin-right: 5px">Quay Lại</a>
+            <form action="{{ route('tasks.forceDeleteAll') }}" method="POST"
+                style="display: inline-block;" onsubmit="return confirm('Bạn có chắc chắn muốn Xoá tất cả task này không ?')">
+                 @csrf
+                @method('delete')
+                <button class="btn btn-sm btn-danger">Xoá tất cả</button>
             </form>
-            <a href="{{ route('tasks.trash') }}" class="btn btn-sm btn-danger" style="margin-left: 5px">Thùng rác</a>
         </div>
     </div>
     <div class="card-body">
@@ -114,15 +114,20 @@
                         <td>{{ $task->created_at->format('Y-m-d') }}</td>
                         <td>{{ $task->user->name }}</td>
                         <td class="text-end">
-                            <a href="{{ route('tasks.show', $task->id) }}" class="btn btn-sm btn-info text-white">Xem</a>
-                            <a href="{{ route('tasks.edit', $task->id) }}" class="btn btn-sm btn-warning">Sửa</a>
-                            <form action="{{ route('tasks.destroy', $task->id) }}" method="POST"
-                                style="display: inline-block;" onsubmit="return confirm('Bạn có chắc chắn muốn xoá task này không ?')">
-                                @csrf
-                                @method('DELETE')
-                                <button class="btn btn-sm btn-danger">Xóa</button>
-                            </form>
                             
+                            <form action="{{ route('tasks.restore', $task->id) }}" method="POST"
+                                style="display: inline-block;" onsubmit="return confirm('Bạn có chắc chắn muốn khôi phục task này không ?')">
+                                @csrf
+                                @method('post')
+                                <button class="btn btn-sm btn-success">Khôi phục</button>
+                            </form>
+
+                            <form action="{{ route('tasks.forceDelete', $task->id) }}" method="POST"
+                                style="display: inline-block;" onsubmit="return confirm('Bạn có chắc chắn muốn Xoá task này không ?')">
+                                @csrf
+                                @method('delete')
+                                <button class="btn btn-sm btn-danger">Xoá</button>
+                            </form>
                         </td>
                     </tr>
                 @empty
@@ -137,74 +142,3 @@
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-    $(document).ready(function(){
-        
-        // Bắt sự kiện click
-        $('.change-status').click(function(e){
-            e.preventDefault(); 
-            
-            // --- BẮT ĐẦU LOGIC ---
-            // TOÀN BỘ LOGIC PHẢI Ở TRONG NÀY
-
-            const linkClicked = $(this); 
-            const taskRow = linkClicked.closest('tr');
-            const taskId = taskRow.data('id');
-            const newStatus = linkClicked.data('status');
-
-            // Chỉ gọi Ajax KHI click
-            $.ajax({
-                url: `/task/${taskId}/status`, // Bây giờ taskId sẽ có giá trị (ví dụ: 1, 2, 3)
-                type: 'PATCH',
-                data: {
-                    status: newStatus,
-                    _token: "{{ csrf_token() }}"
-                }, 
-                success: function(response) {
-                    console.log('Cập nhật thành công!');
-                    if(response.success){
-                        const badge = taskRow.find('.badge-status');
-                        let badgeText = '';
-                        let badgeClass = 'badge ';
-                        switch(response.status){
-                            case '0':
-                                badgeText = 'Chưa bắt đầu';
-                                badgeClass += 'bg-primary';
-                                break;
-                            case '1':
-                                badgeText = 'Đang làm';
-                                badgeClass += 'bg-warning';
-                                break;
-                            case '2':
-                                badgeText = 'Hoàn thành';
-                                badgeClass += 'bg-success';
-                                break;
-                            default:
-                                break;
-                        }
-                        // upadeta lại các tên class và text
-                        // badge-status để sau này có thể update lại
-                        badge.attr('class', badgeClass + ' badge-status').text(badgeText);
-
-                        toastr.success(response.message);
-                    }
-                    //window.location.reload(); 
-                }, 
-                error: function(error) {
-                    toastr.error('Cập Nhật Trạng Thái Thất Bại !');
-                    //console.error('Lỗi khi cập nhật:', error);
-                    //alert('Đã xảy ra lỗi.');
-                }
-            }); // Kết thúc $.ajax
-            
-            // --- KẾT THÚC LOGIC ---
-
-        }); // Kết thúc hàm .click
-        
-        // KHÔNG ĐỂ BẤT KỲ CODE AJAX NÀO Ở ĐÂY
-
-    }); // Kết thúc $(document).ready
-</script>
-@endpush

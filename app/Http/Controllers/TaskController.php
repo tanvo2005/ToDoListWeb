@@ -150,4 +150,68 @@ class TaskController extends Controller
             'status'=>$task->status
         ]);
     }
+
+    public function trash(Request $request){
+        // tron trường hợp truy suất phức tạp thì dùng build query để truy xuất dữ liệu
+        $query = Task::query();
+
+        // buile query dugnf tốt cho các chức năng tìm kiếm và sắp xếp
+        // tìm kiếm
+        if($request->filled('search')){// nếu trong ô tìm kiếm có giá trị 
+            $query->where(function ($subquery) use($request) {
+                $subquery->where('title', 'LIKE', '%'. $request->search . '%') // truy vấn từ tiêu đề
+                ->orWhere('description', 'LIKE', '%'. $request->search .'%');// truy vấn từ mô tả
+            });
+        }
+
+        // lọc theo trạng thái 
+        //$request->filled('status') : nếu trạng thái status được gửi lên
+        //in_array($request->filled('status'),[Task::CHUA_LAM, Task::DANG_LAM, Task::DA_XONG]): nếu giá trị status khi được gửi lên nằm trong mảng có 3 trạng thái
+        if($request->filled('status') && in_array($request->filled('status'),[Task::CHUA_LAM, Task::DANG_LAM, Task::DA_XONG])){
+            $query->where('status', $request->status);
+        }
+
+        // sắp xếp theo
+        switch($request->locTheo){
+            case('sapDenHan'):
+                $query->orderBy('due_date', 'ASC');
+                break;
+            case('chuaDenHan'):
+                $query->orderBy('due_date', 'DESC');
+                break;
+            case('ngayTaoMoi'):
+                $query->orderBy('created_at', 'ASC');
+                break;
+            case('ngayTaoLau'):
+                $query->orderBy('created_at', 'DESC');
+                break;
+            default:
+                $query->orderBy('id', 'DESC'); // nếu không có các trường trên thì lấy những thằng mới nhất
+        }
+
+
+        $tasks = $query->onlyTrashed()->with('user')->paginate(10)->appends($request->all());
+        // khi lọc dữ liệu mà nhấn sang trang khác thì nó sẽ không lưu dữ các request cũ do đó khi sang trang
+        // mới nó sẽ bị mất tính nắng lọc cách khắc phục là thêm appends($request->all()); để nó dữ lại 
+        //tất cả các request
+
+        //$tasks = Task::all(); vid dữ liệu  nhiều nên giới hạn dữ liệu 10 dòng để phân trang
+        //$tasks = Task::with('user')->orderBy('due_date')->paginate(10);
+        return view('tasks.trash', ['tasks'=>$tasks]);
+    }
+
+    public function restore($id){
+        Task::withTrashed()->findOrFail($id)->restore();
+        return redirect()->route('tasks.index')->with('message', 'Khôi phục Task Thành Công !');
+    }
+
+    public function forceDelete($id){
+        Task::withTrashed()->findOrFail($id)->forceDelete();
+        return redirect()->route('tasks.index')->with('message', 'Xoá Task Thành Công !');
+    }
+
+    public function forceDeleteAll(){
+        Task::onlyTrashed()->forceDelete();
+        return redirect()->route('tasks.index')->with('message', 'Xoá tất cả Task Thành Công !');
+    }
 }
